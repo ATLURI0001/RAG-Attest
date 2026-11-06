@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Zig Build Artifacts & Cache
+.zig-cache/
+zig-cache/
+zig-out/
+
+# Persistent local evaluation WAL database (keep sample, ignore local run history)
+data/wal/
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

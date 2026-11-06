@@ -1,0 +1,19 @@
+// AEGIS-EDGE Production Evaluation Policy
+// Mandates balanced edge efficiency and high answer fidelity
+
+evaluate pipeline "production_edge_service" with budget { latency_ms: 350, tokens: 128 } {
+  // Groundedness: Answer must be backed by retrieved context
+  assert groundedness >= 0.80 fail_with "Unsafe hallucination: Groundedness fell below 80%" severity critical;
+
+  // Context Precision: Retrieval must rank relevant chunks at top
+  assert context_precision >= 0.70 fail_with "Retrieval ranking degraded" severity warning;
+
+  // Answer Relevance: Answer must directly resolve question intent
+  assert answer_relevance >= 0.75 fail_with "Response failed to address query intent" severity critical;
+
+  // Penalize answers that diverge in semantic embedding space
+  penalize semantic_drift > 0.40 by 0.15 fail_with "Semantic drift outside safety margin";
+
+  // Strict Hallucination Guard
+  hallucination_guard strict <= 0.20;
+}

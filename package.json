@@ -1,0 +1,27 @@
+{
+  "name": "rag-attest",
+  "version": "1.0.0",
+  "description": "RAG-Attest: Sovereign Edge RAG Evaluation, Attestation & Governance Engine with Custom RAG-L Domain Specific Language",
+  "type": "module",
+  "main": "src/edge/engine.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types tests/run_all.ts",
+    "serve": "node --experimental-strip-types src/cli/cli.ts serve",
+    "eval": "node --experimental-strip-types src/cli/cli.ts eval",
+    "benchmark": "node --experimental-strip-types src/cli/cli.ts benchmark",
+    "check-policy": "node --experimental-strip-types src/cli/cli.ts check-policy",
+    "demo": "node --experimental-strip-types src/cli/cli.ts demo"
+  },
+  "keywords": [
+    "rag",
+    "rag-evaluation",
+    "edge-ai",
+    "hallucination-detection",
+    "dsl",
+    "rag-triad",
+    "zig",
+    "typescript"
+  ],
+  "author": "Antigravity Engineering",
+  "license": "Apache-2.0"
+}

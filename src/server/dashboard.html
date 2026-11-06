@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AEGIS-EDGE // Sovereign RAG Evaluation Cockpit</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111726;
+      --card-border: #1e293b;
+      --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.25);
+      --green: #10b981;
+      --red: #f43f5e;
+      --yellow: #f59e0b;
+      --purple: #8b5cf6;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 20px;
+      box-shadow: 0 0 15px var(--cyan-glow);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .telemetry-bar {
+      display: flex;
+      gap: 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .stat-pill {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .stat-val {
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .radar-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 220px;
+    }
+
+    .stream-feed {
+      height: 340px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stream-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .stream-item:hover, .stream-item.active {
+      border-color: var(--cyan);
+      background: rgba(6, 182, 212, 0.05);
+    }
+
+    .stream-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-optimal { background: rgba(16, 185, 129, 0.2); color: var(--green); border: 1px solid var(--green); }
+    .badge-acceptable { background: rgba(6, 182, 212, 0.2); color: var(--cyan); border: 1px solid var(--cyan); }
+    .badge-degraded { background: rgba(245, 158, 11, 0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+    .badge-unsafe { background: rgba(244, 63, 94, 0.2); color: var(--red); border: 1px solid var(--red); }
+
+    .claim-badge-entailed { background: rgba(16, 185, 129, 0.2); color: var(--green); }
+    .claim-badge-ungrounded { background: rgba(245, 158, 11, 0.2); color: var(--yellow); }
+    .claim-badge-contradicted { background: rgba(244, 63, 94, 0.2); color: var(--red); font-weight: 800; }
+
+    .claims-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .claim-card {
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 3px solid var(--card-border);
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .claim-card.entailed { border-left-color: var(--green); }
+    .claim-card.ungrounded { border-left-color: var(--yellow); }
+    .claim-card.contradicted { border-left-color: var(--red); }
+
+    .editor-box {
+      width: 100%;
+      height: 180px;
+      background: #060910;
+      color: #38bdf8;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+    }
+
+    .actions-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric-cell {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .metric-num {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--cyan);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-logo">A</div>
+      <div>
+        <div class="brand-title">AEGIS-EDGE // EVALUATION COCKPIT</div>
+        <div class="brand-subtitle">Sovereign Edge RAG Attestation Engine</div>
+      </div>
+    </div>
+    <div class="telemetry-bar">
+      <div class="stat-pill">
+        <span class="stat-label">Engine</span>
+        <span class="stat-val" id="stat-engine">Zig + RAG-L</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Memory RSS</span>
+        <span class="stat-val" id="stat-mem">-- MB</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Evaluations</span>
+        <span class="stat-val" id="stat-count">0</span>
+      </div>
+      <div class="stat-pill">
+        <span class="stat-label">Hallucination Rate</span>
+        <span class="stat-val" id="stat-hallucination" style="color: var(--yellow);">0.0%</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Left: RAG Triad Radar & Active Metrics -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">RAG Triad Geometry & Safety Radar</div>
+        <div class="badge badge-optimal" id="active-status">ACTIVE</div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-cell">
+          <div class="stat-label">Context Precision</div>
+          <div class="metric-num" id="metric-precision">0.00</div>
+        </div>
+        <div class="metric-cell">
+          <div class="stat-label">Groundedness</div>
+          <div class="metric-num" id="metric-groundedness">0.00</div>
+        </div>
+        <div class="metric-cell">
+          <div class="stat-label">Answer Relevance</div>
+          <div class="metric-num" id="metric-relevance">0.00</div>
+        </div>
+      </div>
+
+      <div class="radar-container">
+        <svg id="radar-svg" width="220" height="220" viewBox="0 0 220 220">
+          <!-- Background Grid Rings -->
+          <circle cx="110" cy="110" r="30" fill="none" stroke="#1e293b" stroke-width="1"/>
+          <circle cx="110" cy="110" r="60" fill="none" stroke="#1e293b" stroke-width="1"/>
+          <circle cx="110" cy="110" r="90" fill="none" stroke="#1e293b" stroke-width="1"/>
+
+          <!-- Axis lines -->
+          <line x1="110" y1="110" x2="110" y2="20" stroke="#1e293b" stroke-dasharray="2 2"/>
+          <line x1="110" y1="110" x2="188" y2="155" stroke="#1e293b" stroke-dasharray="2 2"/>
+          <line x1="110" y1="110" x2="32" y2="155" stroke="#1e293b" stroke-dasharray="2 2"/>
+
+          <!-- Axis Labels -->
+          <text x="110" y="14" fill="#94a3b8" font-size="9" text-anchor="middle">GROUNDEDNESS</text>
+          <text x="195" y="165" fill="#94a3b8" font-size="9" text-anchor="start">RELEVANCE</text>
+          <text x="25" y="165" fill="#94a3b8" font-size="9" text-anchor="end">PRECISION</text>
+
+          <!-- Triad Polygon -->
+          <polygon id="radar-poly" points="110,110 110,110 110,110" fill="rgba(6, 182, 212, 0.3)" stroke="#06b6d4" stroke-width="2"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Right: Real-time Evaluation Stream -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Live Edge Event Stream</div>
+        <button class="btn btn-secondary" onclick="runSimulatedEvaluation('optimal')">+ Test Optimal</button>
+        <button class="btn btn-secondary" onclick="runSimulatedEvaluation('hallucinated')">+ Test Hallucination</button>
+      </div>
+      <div class="stream-feed" id="stream-feed">
+        <div style="color: var(--text-muted); text-align: center; margin-top: 60px;">
+          Listening for edge RAG events on SSE stream...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Left: Atomic Claim Grounding Inspector -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Atomic Claim Entailment Inspector</div>
+        <span class="stat-label" id="claims-count-badge">0 CLAIMS</span>
+      </div>
+      <div class="claims-list" id="claims-container">
+        <div style="color: var(--text-muted); font-size: 12px;">Select an evaluation event from the stream to inspect claim-level attribution.</div>
+      </div>
+    </div>
+
+    <!-- Right: RAG-L Domain Specific Language Playground -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">RAG-L Policy Attestation Playground</div>
+        <button class="btn" onclick="validatePolicy()">Compile & Attest</button>
+      </div>
+      <textarea class="editor-box" id="ragl-editor">evaluate pipeline "edge_guard" with budget { latency_ms: 350 } {
+  assert groundedness >= 0.80 fail_with "Severe hallucination risk";
+  assert context_precision >= 0.70 severity warning;
+  assert answer_relevance >= 0.75;
+  penalize semantic_drift > 0.40 by 0.15 fail_with "Answer drifted from query";
+  hallucination_guard strict <= 0.20;
+}</textarea>
+      <div class="actions-bar">
+        <span id="policy-status" style="font-size: 11px; color: var(--green);">Policy syntax: Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeResult = null;
+
+    // Connect to SSE stream
+    const eventSource = new EventSource('/api/events');
+    eventSource.addEventListener('evaluation', e => {
+      const result = JSON.parse(e.data);
+      addStreamItem(result);
+      selectResult(result);
+    });
+
+    // Fetch initial health & summary
+    async function refreshTelemetry() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        document.getElementById('stat-mem').textContent = data.telemetry.memoryRssMb + ' MB';
+      } catch (err) {}
+
+      try {
+        const sRes = await fetch('/api/metrics/summary');
+        const sum = await sRes.json();
+        document.getElementById('stat-count').textContent = sum.totalCount;
+        document.getElementById('stat-hallucination').textContent = (sum.hallucinationRate * 100).toFixed(1) + '%';
+      } catch (err) {}
+    }
+    setInterval(refreshTelemetry, 3000);
+    refreshTelemetry();
+
+    function addStreamItem(res) {
+      const feed = document.getElementById('stream-feed');
+      // clear placeholder if first item
+      if (feed.children.length === 1 && feed.children[0].textContent.includes('Listening')) {
+        feed.innerHTML = '';
+      }
+
+      const item = document.createElement('div');
+      item.className = 'stream-item';
+      item.onclick = () => selectResult(res);
+
+      const badgeClass = 'badge-' + (res.status ? res.status.toLowerCase() : 'acceptable');
+      item.innerHTML = `
+        <div class="stream-header">
+          <span style="font-weight: 700; color: var(--cyan);">${res.payloadId || res.id}</span>
+          <span class="badge ${badgeClass}">${res.status || 'EVAL'}</span>
+        </div>
+        <div style="color: var(--text-muted); font-size: 11px;">
+          Grounded: ${(res.triad.groundedness * 100).toFixed(0)}% |
+          Relevance: ${(res.triad.answerRelevance * 100).toFixed(0)}% |
+          Latency: ${res.efficiency.latencyMs}ms
+        </div>
+      `;
+      feed.insertBefore(item, feed.firstChild);
+    }
+
+    function selectResult(res) {
+      activeResult = res;
+
+      // Update radar & triad numbers
+      document.getElementById('metric-precision').textContent = res.triad.contextPrecision.toFixed(2);
+      document.getElementById('metric-groundedness').textContent = res.triad.groundedness.toFixed(2);
+      document.getElementById('metric-relevance').textContent = res.triad.answerRelevance.toFixed(2);
+
+      const statusBadge = document.getElementById('active-status');
+      statusBadge.textContent = res.status;
+      statusBadge.className = 'badge badge-' + res.status.toLowerCase();
+
+      // Draw Radar
+      drawRadar(res.triad.groundedness, res.triad.answerRelevance, res.triad.contextPrecision);
+
+      // Render Claims
+      renderClaims(res.claims || []);
+    }
+
+    function drawRadar(groundedness, relevance, precision) {
+      const cx = 110, cy = 110, maxR = 90;
+
+      // Axis 1: Groundedness (Top: angle -90deg / -pi/2)
+      const r1 = groundedness * maxR;
+      const x1 = cx;
+      const y1 = cy - r1;
+
+      // Axis 2: Relevance (Bottom Right: angle 30deg / pi/6)
+      const r2 = relevance * maxR;
+      const x2 = cx + r2 * Math.cos(Math.PI / 6);
+      const y2 = cy + r2 * Math.sin(Math.PI / 6);
+
+      // Axis 3: Precision (Bottom Left: angle 150deg / 5pi/6)
+      const r3 = precision * maxR;
+      const x3 = cx - r3 * Math.cos(Math.PI / 6);
+      const y3 = cy + r3 * Math.sin(Math.PI / 6);
+
+      const poly = document.getElementById('radar-poly');
+      poly.setAttribute('points', `${x1},${y1} ${x2},${y2} ${x3},${y3}`);
+    }
+
+    function renderClaims(claims) {
+      const container = document.getElementById('claims-container');
+      container.innerHTML = '';
+      document.getElementById('claims-count-badge').textContent = claims.length + ' CLAIMS';
+
+      if (claims.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">No discrete claims extracted from answer.</div>';
+        return;
+      }
+
+      for (const c of claims) {
+        const div = document.createElement('div');
+        const stLower = c.status.toLowerCase();
+        div.className = `claim-card ${stLower}`;
+
+        div.innerHTML = `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span class="badge claim-badge-${stLower}">[${c.status}]</span>
+            <span style="color: var(--text-muted); font-size: 11px;">Confidence: ${(c.confidence * 100).toFixed(0)}%</span>
+          </div>
+          <div style="color: var(--text); font-weight: 500;">"${c.claimText}"</div>
+          ${c.bestMatchingChunkId ? `<div style="font-size: 10px; color: var(--cyan); margin-top: 4px;">Matching Chunk: ${c.bestMatchingChunkId} (score: ${c.matchScore})</div>` : ''}
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    async function runSimulatedEvaluation(type) {
+      const payload = type === 'optimal' ? {
+        id: 'tx-opt-' + Math.floor(Math.random() * 9000 + 1000),
+        query: "What is the memory limit for edge micro-nodes?",
+        retrievedChunks: [
+          { id: "chunk-1", text: "Edge micro-nodes have a maximum memory allocation ceiling of 128MB RAM." },
+          { id: "chunk-2", text: "In high-throughput IoT networks, edge micro-nodes should operate under 128MB." }
+        ],
+        generatedAnswer: "Edge micro-nodes have a memory ceiling of 128MB RAM for IoT workloads.",
+        latencyMs: 145,
+        tokensGenerated: 18
+      } : {
+        id: 'tx-halluc-' + Math.floor(Math.random() * 9000 + 1000),
+        query: "What is the memory limit for edge micro-nodes?",
+        retrievedChunks: [
+          { id: "chunk-1", text: "Edge micro-nodes have a maximum memory allocation ceiling of 128MB RAM." }
+        ],
+        generatedAnswer: "Edge micro-nodes require 64 Gigabytes of ECC RAM and a dedicated Nvidia H100 GPU cluster.",
+        latencyMs: 480,
+        tokensGenerated: 24
+      };
+
+      const policySrc = document.getElementById('ragl-editor').value;
+
+      try {
+        const res = await fetch('/api/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload, policy: policySrc })
+        });
+        const evalRes = await res.json();
+        addStreamItem(evalRes);
+        selectResult(evalRes);
+      } catch (err) {
+        alert('Evaluation failed: ' + err.message);
+      }
+    }
+
+    async function validatePolicy() {
+      const src = document.getElementById('ragl-editor').value;
+      const statusLabel = document.getElementById('policy-status');
+
+      try {
+        const res = await fetch('/api/dsl/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: src })
+        });
+        const data = await res.json();
+
+        if (data.valid) {
+          statusLabel.textContent = 'Policy compiled successfully. Ready for edge attestation.';
+          statusLabel.style.color = 'var(--green)';
+
+          if (activeResult) {
+            runSimulatedEvaluation('optimal');
+          }
+        } else {
+          statusLabel.textContent = data.error;
+          statusLabel.style.color = 'var(--red)';
+        }
+      } catch (err) {
+        statusLabel.textContent = 'Server error: ' + err.message;
+        statusLabel.style.color = 'var(--red)';
+      }
+    }
+  </script>
+</body>
+</html>

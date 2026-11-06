@@ -1,0 +1,9 @@
+// AEGIS-EDGE Low-Power IoT Gateway Policy
+// Strict sub-150ms latency budget with balanced quality checks
+
+evaluate pipeline "iot_gateway_micro" with budget { latency_ms: 150, tokens: 32 } {
+  assert latency_ms <= 150 fail_with "IoT hardware real-time deadline missed" severity critical;
+  assert groundedness >= 0.70 fail_with "Low groundedness on edge telemetry answer";
+  assert brevity_index >= 0.60 fail_with "Verbose response on low-bandwidth bus" severity warning;
+  hallucination_guard balanced <= 0.35;
+}

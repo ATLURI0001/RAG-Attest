@@ -1,0 +1,16 @@
+// AEGIS-EDGE Mission-Critical Zero-Hallucination Policy
+// Applicable for Medical, Legal, Financial and Industrial Edge Systems
+
+evaluate pipeline "mission_critical_airgap" with budget { latency_ms: 500 } {
+  // Invariant: Non-negotiable full groundedness
+  invariant groundedness >= 0.95 fail_with "CRITICAL: Zero-Hallucination violation";
+
+  // Answer must have direct query alignment
+  assert answer_relevance >= 0.85 fail_with "Answer does not satisfy critical query requirements";
+
+  // Penalize contradiction entropy
+  penalize contradiction_entropy > 0.01 by 0.50 fail_with "Conflicting facts detected in context chunks";
+
+  // Strict zero-risk hallucination guard
+  hallucination_guard strict <= 0.05;
+}
