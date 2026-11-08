@@ -82,6 +82,7 @@ export class FastTokenizer {
    * On the edge, decomposes compound sentences with clauses into atomic testable assertions.
    */
   static extractClaims(text: string): string[] {
+    if (!text || typeof text !== 'string') return [];
     const sentences = this.splitSentences(text);
     const claims: string[] = [];
 
@@ -96,7 +97,8 @@ export class FastTokenizer {
       }
     }
 
-    return claims.length > 0 ? claims : [text.trim()];
+    const trimmed = text.trim();
+    return claims.length > 0 ? claims : (trimmed ? [trimmed] : []);
   }
 
   /**
