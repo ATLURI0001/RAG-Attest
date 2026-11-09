@@ -13,16 +13,34 @@ export interface SystemResourceProfile {
 
 export class EdgeTelemetry {
   private static startTime = Date.now();
+  private static lastCpuUsage: NodeJS.CpuUsage | null = null;
+  private static lastCpuTime: number = Date.now();
 
   /**
-   * Take a live snapshot of host edge resources.
+   * Take a live snapshot of host edge resources with dynamic CPU usage tracking.
    */
   static getResourceSnapshot(): SystemResourceProfile {
     const mem = process.memoryUsage();
+    let cpuPct = 0.0;
+
+    const now = Date.now();
+    const currentCpu = process.cpuUsage();
+    if (this.lastCpuUsage) {
+      const elapsedMs = now - this.lastCpuTime;
+      if (elapsedMs > 0) {
+        const userDiffMicros = currentCpu.user - this.lastCpuUsage.user;
+        const systemDiffMicros = currentCpu.system - this.lastCpuUsage.system;
+        const totalDiffMs = (userDiffMicros + systemDiffMicros) / 1000;
+        cpuPct = Math.min(100.0, Math.round((totalDiffMs / elapsedMs) * 1000) / 10);
+      }
+    }
+    this.lastCpuUsage = currentCpu;
+    this.lastCpuTime = now;
+
     return {
       memoryRssMb: Math.round((mem.rss / 1024 / 1024) * 10) / 10,
       memoryHeapUsedMb: Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10,
-      cpuUsagePct: 0.0, // Calculated dynamically
+      cpuUsagePct: cpuPct,
       uptimeSeconds: Math.floor((Date.now() - this.startTime) / 1000),
       nodeVersion: process.version
     };
