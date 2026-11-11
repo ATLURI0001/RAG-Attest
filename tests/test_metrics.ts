@@ -52,6 +52,20 @@ export function runMetricsTests(): boolean {
     throw new Error('Full payload metrics calculation failed sanity bounds');
   }
 
+  console.log('  Testing Short/Numeric Claims & Ngram Edge Guards...');
+  const numericChunks: RetrievedChunk[] = [
+    { id: 'c-num', text: 'The maximum retry threshold is 42 attempts.' }
+  ];
+  const shortNumericEval = EdgeMetricsEngine.evaluateGroundednessAndClaims('42.', numericChunks);
+  if (shortNumericEval.claims.length === 0 || shortNumericEval.claims[0].status !== 'ENTAILED') {
+    throw new Error(`Short numeric claim "42." failed grounding check: ${JSON.stringify(shortNumericEval)}`);
+  }
+
+  const badNgramInput = EdgeMetricsEngine.evaluateGroundednessAndClaims('Simple claim.', null as unknown as RetrievedChunk[]);
+  if (badNgramInput.groundedness !== 0) {
+    throw new Error('Null chunks must yield 0 groundedness without throwing');
+  }
+
   console.log('  ✓ Mathematical Metrics Engine tests PASSED');
   return true;
 }
