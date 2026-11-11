@@ -42,7 +42,9 @@ export class FastTokenizer {
    * Generate n-grams (e.g. bigrams or trigrams) from token stream.
    */
   static ngrams(tokens: string[], n: number = 2): string[] {
-    if (tokens.length < n) return [];
+    if (!Array.isArray(tokens) || !Number.isInteger(n) || n <= 0 || tokens.length < n) {
+      return [];
+    }
     const grams: string[] = [];
     for (let i = 0; i <= tokens.length - n; i++) {
       grams.push(tokens.slice(i, i + n).join(' '));

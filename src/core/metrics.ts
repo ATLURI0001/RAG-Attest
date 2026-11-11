@@ -149,20 +149,34 @@ export class EdgeMetricsEngine {
     let entailedCount = 0;
     let contradictedCount = 0;
 
-    const chunkData = chunks.map(c => {
-      const tokens = FastTokenizer.tokenize(c.text, true);
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    const chunkData = safeChunks.map(c => {
+      const text = typeof c?.text === 'string' ? c.text : '';
+      const tokens = FastTokenizer.tokenize(text, true);
+      const rawTokens = FastTokenizer.tokenize(text, false);
+      const rawWords = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
       return {
-        id: c.id,
-        text: c.text,
+        id: c?.id ?? 'unknown',
+        text,
         tokenSet: new Set(tokens),
+        rawTokenSet: new Set([...rawTokens, ...rawWords]),
         bigrams: new Set(FastTokenizer.ngrams(tokens, 2)),
-        hasNegation: FastTokenizer.hasNegation(c.text)
+        rawBigrams: new Set(FastTokenizer.ngrams(rawTokens, 2)),
+        hasNegation: FastTokenizer.hasNegation(text)
       };
     });
 
     for (let i = 0; i < rawClaims.length; i++) {
       const claimText = rawClaims[i];
-      const claimTokens = FastTokenizer.tokenize(claimText, true);
+      const filteredTokens = FastTokenizer.tokenize(claimText, true);
+      // Guard short/stop-word-only claims so valid short assertions don't collapse to 0 overlap
+      const usingRawFallback = filteredTokens.length === 0;
+      const claimTokens = usingRawFallback
+        ? Array.from(new Set([
+            ...FastTokenizer.tokenize(claimText, false),
+            ...claimText.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
+          ]))
+        : filteredTokens;
       const claimTokenSet = new Set(claimTokens);
       const claimBigrams = new Set(FastTokenizer.ngrams(claimTokens, 2));
       const claimHasNegation = FastTokenizer.hasNegation(claimText);
@@ -173,14 +187,19 @@ export class EdgeMetricsEngine {
       let contradictionFlag = false;
 
       for (const cd of chunkData) {
+        const targetTokenSet = usingRawFallback ? cd.rawTokenSet : cd.tokenSet;
+        const targetBigrams = usingRawFallback ? cd.rawBigrams : cd.bigrams;
+
         // Keyword overlap
         const matched: string[] = [];
         for (const ct of claimTokenSet) {
-          if (cd.tokenSet.has(ct)) matched.push(ct);
+          if (targetTokenSet.has(ct)) matched.push(ct);
         }
 
         const unigramScore = claimTokenSet.size > 0 ? matched.length / claimTokenSet.size : 0;
-        const bigramScore = this.jaccardSimilarity(claimBigrams, cd.bigrams);
+        const bigramScore = claimBigrams.size > 0
+          ? this.jaccardSimilarity(claimBigrams, targetBigrams)
+          : unigramScore;
 
         // Harmonized match score
         const score = 0.65 * unigramScore + 0.35 * bigramScore;
