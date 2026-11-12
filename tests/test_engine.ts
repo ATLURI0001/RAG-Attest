@@ -139,6 +139,21 @@ export function runEngineTests(): boolean {
       throw new Error(`Expected recovered storage to have 3 items, got ${recoveredRecent.length}`);
     }
 
+    // 6. Verify zero latency budget preserved & invalid telemetry guarded
+    const zeroBudgetDir = path.join(tempDir, 'zero-budget');
+    const strictEvaluator = new AegisEdgeEvaluator({
+      storageDir: zeroBudgetDir,
+      maxLatencyBudgetMs: 0
+    });
+    const slowRes = strictEvaluator.evaluate({ ...groundedPayload, latencyMs: 5 });
+    if (slowRes.efficiency.edgeBudgetCompliance !== false) {
+      throw new Error('Expected zero maxLatencyBudgetMs to fail 5ms payload');
+    }
+    const negativeRes = strictEvaluator.evaluate({ ...groundedPayload, latencyMs: -10 });
+    if (negativeRes.efficiency.edgeBudgetCompliance !== false || negativeRes.efficiency.latencyMs !== 0) {
+      throw new Error('Expected negative latencyMs to be sanitized to 0 and fail budget check');
+    }
+
     console.log('  ✓ AegisEdgeEvaluator & EdgeStorage tests PASSED');
     return true;
   } finally {
