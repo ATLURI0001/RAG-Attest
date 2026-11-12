@@ -29,7 +29,9 @@ export class AegisEdgeEvaluator {
 
   constructor(options: EvaluatorOptions = {}) {
     this.storage = new EdgeStorage(options.storageDir || './data/wal');
-    this.maxLatencyBudgetMs = options.maxLatencyBudgetMs || 500;
+    const budget = options.maxLatencyBudgetMs;
+    this.maxLatencyBudgetMs =
+      typeof budget === 'number' && Number.isFinite(budget) && budget >= 0 ? budget : 500;
 
     if (typeof options.defaultPolicy === 'string') {
       this.defaultPolicy = RagLCompiler.compile(options.defaultPolicy);
@@ -62,12 +64,17 @@ export class AegisEdgeEvaluator {
 
     // 2. Measure evaluation overhead & efficiency
     const evalDurationMs = performance.now() - startTime;
-    const latency = payload.latencyMs || 0;
-    const tokens = payload.tokensGenerated || 0;
+    const rawLatency = payload.latencyMs;
+    const latency = typeof rawLatency === 'number' && Number.isFinite(rawLatency) && rawLatency >= 0 ? rawLatency : 0;
+    const rawTokens = payload.tokensGenerated;
+    const tokens = typeof rawTokens === 'number' && Number.isFinite(rawTokens) && rawTokens >= 0 ? rawTokens : 0;
     const throughput = latency > 0 && tokens > 0 ? (tokens / latency) * 1000 : undefined;
     const mem = process.memoryUsage();
 
-    const edgeBudgetCompliance = latency <= this.maxLatencyBudgetMs;
+    const edgeBudgetCompliance =
+      typeof rawLatency === 'number' && Number.isFinite(rawLatency) && rawLatency >= 0
+        ? latency <= this.maxLatencyBudgetMs
+        : false;
 
     // 3. Compute Harmonized Overall Score
     // Weightings: 35% Groundedness, 35% Answer Relevance, 20% Context Precision, 10% Brevity/Diversity
