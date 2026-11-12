@@ -13,6 +13,9 @@ export class EdgeStorage {
   private capacity: number;
 
   constructor(baseDir: string = './data', capacity: number = 200) {
+    if (!Number.isInteger(capacity) || capacity <= 0) {
+      throw new Error(`EdgeStorage capacity must be a positive integer, got ${capacity}`);
+    }
     this.capacity = capacity;
     if (!fs.existsSync(baseDir)) {
       fs.mkdirSync(baseDir, { recursive: true });
@@ -44,7 +47,10 @@ export class EdgeStorage {
    * Retrieve the most recent N evaluation records from memory.
    */
   getRecent(limit: number = 50): EvaluationResult[] {
-    return this.ringBuffer.slice(0, limit);
+    if (!Number.isFinite(limit) || limit <= 0) {
+      return [];
+    }
+    return this.ringBuffer.slice(0, Math.floor(limit));
   }
 
   /**
@@ -129,11 +135,22 @@ export class EdgeStorage {
     try {
       const data = fs.readFileSync(this.logFilePath, 'utf-8');
       const lines = data.split('\n').filter(l => l.trim().length > 0);
-      const recentLines = lines.slice(-this.capacity);
-      for (const line of recentLines) {
+      for (const line of lines) {
         try {
           const parsed = JSON.parse(line) as EvaluationResult;
-          this.ringBuffer.unshift(parsed);
+          if (
+            parsed &&
+            typeof parsed === 'object' &&
+            parsed.triad &&
+            parsed.extended &&
+            parsed.efficiency &&
+            Array.isArray(parsed.claims)
+          ) {
+            this.ringBuffer.unshift(parsed);
+            if (this.ringBuffer.length > this.capacity) {
+              this.ringBuffer.pop();
+            }
+          }
         } catch {
           // ignore corrupted lines
         }
