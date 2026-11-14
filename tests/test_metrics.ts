@@ -66,6 +66,18 @@ export function runMetricsTests(): boolean {
     throw new Error('Null chunks must yield 0 groundedness without throwing');
   }
 
+  // Verify evaluateContextPrecision and evaluateContextRecall with malformed/null chunks
+  const malformedChunks = [null, { id: 'c-empty' }, { id: 'c-valid', text: 'AES-256 encryption' }] as unknown as RetrievedChunk[];
+  const precWithMalformed = EdgeMetricsEngine.evaluateContextPrecision('encryption', malformedChunks);
+  if (typeof precWithMalformed !== 'number' || isNaN(precWithMalformed)) {
+    throw new Error('Context precision failed on malformed chunk list');
+  }
+
+  const recallWithMalformed = EdgeMetricsEngine.evaluateContextRecall('encryption', malformedChunks);
+  if (typeof recallWithMalformed !== 'number' || isNaN(recallWithMalformed)) {
+    throw new Error('Context recall failed on malformed chunk list');
+  }
+
   console.log('  ✓ Mathematical Metrics Engine tests PASSED');
   return true;
 }
