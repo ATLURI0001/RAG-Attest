@@ -27,7 +27,7 @@ export class FastTokenizer {
    * Split string into clean lowercased tokens.
    */
   static tokenize(text: string, filterStopWords: boolean = false): string[] {
-    if (!text) return [];
+    if (!text || typeof text !== 'string') return [];
     const rawTokens = text
       .toLowerCase()
       .replace(/[^\w\s-]/g, ' ')
@@ -107,6 +107,7 @@ export class FastTokenizer {
    * Detect polarity / negative inversion keywords in a claim or sentence.
    */
   static hasNegation(text: string): boolean {
+    if (!text || typeof text !== 'string') return false;
     const negations = /\b(not|never|no|none|neither|nor|without|fails|cannot|can't|won't|doesn't|didn't|isn't|aren't|untrue|false)\b/i;
     return negations.test(text);
   }

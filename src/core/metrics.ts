@@ -85,15 +85,17 @@ export class EdgeMetricsEngine {
    * relevant information at the top ranks using Discounted Cumulative Gain (DCG).
    */
   static evaluateContextPrecision(query: string, chunks: RetrievedChunk[]): number {
-    if (!chunks || chunks.length === 0) return 0.0;
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (safeChunks.length === 0) return 0.0;
 
     const queryTokens = new Set(FastTokenizer.tokenize(query, true));
     if (queryTokens.size === 0) return 1.0;
 
     const relevances: number[] = [];
 
-    for (const chunk of chunks) {
-      const chunkTokens = new Set(FastTokenizer.tokenize(chunk.text, true));
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      const chunkTokens = new Set(FastTokenizer.tokenize(text, true));
       let matches = 0;
       for (const qt of queryTokens) {
         if (chunkTokens.has(qt)) matches++;
@@ -306,12 +308,14 @@ export class EdgeMetricsEngine {
     const referenceText = groundTruth || query;
     const refTokens = new Set(FastTokenizer.tokenize(referenceText, true));
 
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
     if (refTokens.size === 0) return 1.0;
-    if (!chunks || chunks.length === 0) return 0.0;
+    if (safeChunks.length === 0) return 0.0;
 
     const aggregateChunkTokens = new Set<string>();
-    for (const chunk of chunks) {
-      const tokens = FastTokenizer.tokenize(chunk.text, true);
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      const tokens = FastTokenizer.tokenize(text, true);
       for (const t of tokens) aggregateChunkTokens.add(t);
     }
 
