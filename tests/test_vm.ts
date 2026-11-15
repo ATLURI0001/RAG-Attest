@@ -79,6 +79,24 @@ export function runVmTests(): boolean {
     throw new Error(`Expected FAILED report with violations, got ${failingReport.verdict}`);
   }
 
+  // Test VM expression evaluation functions and operators
+  const mathDsl = `
+    evaluate pipeline "math_check" {
+      assert clamp(0.75, 0.0, 1.0) == 0.75;
+      assert floor(3.9) == 3;
+      assert ceil(3.1) == 4;
+      assert abs(-5) == 5;
+      assert round(4.6) == 5;
+      assert min() == 0;
+      assert max() == 0;
+    }
+  `;
+  const mathPolicy = RagLCompiler.compile(mathDsl);
+  const mathReport = PolicyVirtualMachine.executePolicy(mathPolicy.policies[0], {});
+  if (mathReport.verdict !== 'PASSED') {
+    throw new Error(`Expected math Policy to pass, got ${mathReport.verdict} with errors: ${JSON.stringify(mathReport.violations)}`);
+  }
+
   console.log('  ✓ Policy Virtual Machine tests PASSED');
   return true;
 }
