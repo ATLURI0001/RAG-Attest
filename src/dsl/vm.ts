@@ -210,6 +210,9 @@ export class PolicyVirtualMachine {
    */
   static evalExpression(node: ExpressionNode, ctx: MetricContext): boolean {
     const val = this.evalRaw(node, ctx);
+    if (typeof val === 'number') {
+      return Number.isFinite(val) && val !== 0;
+    }
     return Boolean(val);
   }
 
@@ -225,7 +228,13 @@ export class PolicyVirtualMachine {
       case 'MetricReference': {
         const metricName = (node as MetricReferenceNode).name.toLowerCase();
         if (metricName in ctx) {
-          return ctx[metricName];
+          const val = ctx[metricName];
+          return val != null ? val : 0;
+        }
+        for (const [k, v] of Object.entries(ctx)) {
+          if (k.toLowerCase() === metricName) {
+            return v != null ? v : 0;
+          }
         }
         return 0;
       }
@@ -237,7 +246,8 @@ export class PolicyVirtualMachine {
           return !arg;
         }
         if (unary.operator === '-') {
-          return -Number(arg);
+          const num = Number(arg);
+          return Number.isFinite(num) ? -num : 0;
         }
         throw new Error(`Unknown unary operator: ${unary.operator}`);
       }
@@ -260,6 +270,7 @@ export class PolicyVirtualMachine {
           case '-': return Number(left) - Number(right);
           case '*': return Number(left) * Number(right);
           case '/': return Number(right) !== 0 ? Number(left) / Number(right) : 0;
+          case '%': return Number(right) !== 0 ? Number(left) % Number(right) : 0;
           default:
             throw new Error(`Unknown binary operator: ${bin.operator}`);
         }
@@ -271,16 +282,28 @@ export class PolicyVirtualMachine {
         const evalArgs = call.args.map(a => this.evalRaw(a, ctx));
 
         if (fnName === 'min') {
-          return Math.min(...evalArgs.map(Number));
+          return evalArgs.length ? Math.min(...evalArgs.map(Number)) : 0;
         }
         if (fnName === 'max') {
-          return Math.max(...evalArgs.map(Number));
+          return evalArgs.length ? Math.max(...evalArgs.map(Number)) : 0;
         }
         if (fnName === 'abs') {
-          return Math.abs(Number(evalArgs[0]));
+          return Math.abs(Number(evalArgs[0] ?? 0));
         }
         if (fnName === 'round') {
-          return Math.round(Number(evalArgs[0]));
+          return Math.round(Number(evalArgs[0] ?? 0));
+        }
+        if (fnName === 'floor') {
+          return Math.floor(Number(evalArgs[0] ?? 0));
+        }
+        if (fnName === 'ceil') {
+          return Math.ceil(Number(evalArgs[0] ?? 0));
+        }
+        if (fnName === 'clamp') {
+          const val = Number(evalArgs[0] ?? 0);
+          const minVal = Number(evalArgs[1] ?? 0);
+          const maxVal = Number(evalArgs[2] ?? 1);
+          return Math.max(minVal, Math.min(maxVal, val));
         }
 
         throw new Error(`Unknown function call: ${call.name}`);
