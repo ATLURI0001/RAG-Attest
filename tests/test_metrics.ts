@@ -112,6 +112,34 @@ export function runMetricsTests(): boolean {
     throw new Error('computeAll must safely handle null payload');
   }
 
+  console.log('  Testing F1 Overlap & Coverage Ratio Metrics...');
+  const f1Exact = EdgeMetricsEngine.evaluateF1Overlap('AES-256 encryption mandated', 'AES-256 encryption mandated');
+  if (f1Exact.f1 !== 1.0 || f1Exact.precision !== 1.0 || f1Exact.recall !== 1.0) {
+    throw new Error(`Expected perfect F1 (1.0), got ${JSON.stringify(f1Exact)}`);
+  }
+
+  const f1Partial = EdgeMetricsEngine.evaluateF1Overlap('AES-256 encryption mandated for all edge traffic', 'AES-256 encryption required');
+  if (f1Partial.f1 <= 0.0 || f1Partial.f1 >= 1.0) {
+    throw new Error(`Expected partial F1 in (0, 1), got ${f1Partial.f1}`);
+  }
+
+  const f1Empty = EdgeMetricsEngine.evaluateF1Overlap('', 'candidate answer');
+  if (f1Empty.f1 !== 0.0) {
+    throw new Error('F1 with empty reference must be 0.0');
+  }
+
+  const coverageVal = EdgeMetricsEngine.evaluateCoverageRatio('AES-256 encryption mandated', [
+    { id: 'c1', text: 'AES-256 is the mandated standard.' }
+  ]);
+  if (coverageVal < 0.6) {
+    throw new Error(`Expected high coverage ratio, got ${coverageVal}`);
+  }
+
+  const coverageEmpty = EdgeMetricsEngine.evaluateCoverageRatio('some query', []);
+  if (coverageEmpty !== 0.0) {
+    throw new Error('Empty chunks coverage ratio must be 0.0');
+  }
+
   console.log('  ✓ Mathematical Metrics Engine tests PASSED');
   return true;
 }
