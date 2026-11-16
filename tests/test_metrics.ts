@@ -78,6 +78,40 @@ export function runMetricsTests(): boolean {
     throw new Error('Context recall failed on malformed chunk list');
   }
 
+  console.log('  Testing Similarity Clamping and Null Payload Guards...');
+  // Cosine similarity guards
+  if (EdgeMetricsEngine.cosineSimilarity(null as unknown as Map<string, number>, new Map()) !== 0.0) {
+    throw new Error('cosineSimilarity must return 0.0 for null inputs');
+  }
+  const m1 = new Map([['term', 2]]);
+  const m2 = new Map([['term', 3]]);
+  const cosVal = EdgeMetricsEngine.cosineSimilarity(m1, m2);
+  if (cosVal < 0.999 || cosVal > 1.0) {
+    throw new Error(`cosineSimilarity must clamp to [0.0, 1.0], got ${cosVal}`);
+  }
+
+  // Jaccard similarity guards
+  if (EdgeMetricsEngine.jaccardSimilarity(null as unknown as Set<string>, new Set()) !== 0.0) {
+    throw new Error('jaccardSimilarity must return 0.0 for null inputs');
+  }
+  if (EdgeMetricsEngine.jaccardSimilarity(new Set(), new Set()) !== 1.0) {
+    throw new Error('jaccardSimilarity for empty sets must be 1.0');
+  }
+
+  // LCS ratio guards
+  if (EdgeMetricsEngine.lcsRatio(null as unknown as string[], []) !== 0.0) {
+    throw new Error('lcsRatio must return 0.0 for null inputs');
+  }
+  if (EdgeMetricsEngine.lcsRatio(['a', 'b'], ['a', 'b']) !== 1.0) {
+    throw new Error('lcsRatio for identical tokens must be 1.0');
+  }
+
+  // computeAll with null or malformed payload
+  const nullPayloadMetrics = EdgeMetricsEngine.computeAll(null as unknown as RagPayload);
+  if (typeof nullPayloadMetrics?.triad?.groundedness !== 'number') {
+    throw new Error('computeAll must safely handle null payload');
+  }
+
   console.log('  ✓ Mathematical Metrics Engine tests PASSED');
   return true;
 }
