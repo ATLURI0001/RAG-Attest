@@ -377,6 +377,72 @@ export class EdgeMetricsEngine {
   }
 
   /**
+   * Token-level F1 Overlap: Evaluates harmonic precision and recall
+   * between candidate answer and ground truth reference.
+   */
+  static evaluateF1Overlap(reference: string, candidate: string): { precision: number; recall: number; f1: number } {
+    const refTokens = FastTokenizer.tokenize(typeof reference === 'string' ? reference : '', true);
+    const candTokens = FastTokenizer.tokenize(typeof candidate === 'string' ? candidate : '', true);
+
+    if (refTokens.length === 0 && candTokens.length === 0) {
+      return { precision: 1.0, recall: 1.0, f1: 1.0 };
+    }
+    if (refTokens.length === 0 || candTokens.length === 0) {
+      return { precision: 0.0, recall: 0.0, f1: 0.0 };
+    }
+
+    const refCounts = new Map<string, number>();
+    for (const t of refTokens) refCounts.set(t, (refCounts.get(t) || 0) + 1);
+
+    let matchCount = 0;
+    const candCounts = new Map<string, number>();
+    for (const t of candTokens) candCounts.set(t, (candCounts.get(t) || 0) + 1);
+
+    for (const [token, count] of candCounts.entries()) {
+      if (refCounts.has(token)) {
+        matchCount += Math.min(count, refCounts.get(token)!);
+      }
+    }
+
+    const precision = matchCount / candTokens.length;
+    const recall = matchCount / refTokens.length;
+    const f1 = (precision + recall) > 0 ? (2 * precision * recall) / (precision + recall) : 0.0;
+
+    return {
+      precision: Math.round(Math.max(0.0, Math.min(1.0, precision)) * 1000) / 1000,
+      recall: Math.round(Math.max(0.0, Math.min(1.0, recall)) * 1000) / 1000,
+      f1: Math.round(Math.max(0.0, Math.min(1.0, f1)) * 1000) / 1000
+    };
+  }
+
+  /**
+   * Coverage Ratio: Measures proportion of unique query content tokens
+   * present within the retrieved chunk set.
+   */
+  static evaluateCoverageRatio(query: string, chunks: RetrievedChunk[]): number {
+    const qTokens = new Set(FastTokenizer.tokenize(typeof query === 'string' ? query : '', true));
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+
+    if (qTokens.size === 0) return 1.0;
+    if (safeChunks.length === 0) return 0.0;
+
+    const chunkTokens = new Set<string>();
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      for (const t of FastTokenizer.tokenize(text, true)) {
+        chunkTokens.add(t);
+      }
+    }
+
+    let covered = 0;
+    for (const qt of qTokens) {
+      if (chunkTokens.has(qt)) covered++;
+    }
+
+    return Math.round(Math.max(0.0, Math.min(1.0, covered / qTokens.size)) * 1000) / 1000;
+  }
+
+  /**
    * Full edge evaluation computation for a RAG payload.
    */
   static computeAll(payload: RagPayload): {
