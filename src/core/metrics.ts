@@ -17,29 +17,38 @@ export class EdgeMetricsEngine {
    * Cosine similarity between two term-frequency maps.
    */
   static cosineSimilarity(tf1: Map<string, number>, tf2: Map<string, number>): number {
+    if (!(tf1 instanceof Map) || !(tf2 instanceof Map)) return 0.0;
     let dotProduct = 0;
     let norm1 = 0;
     let norm2 = 0;
 
     for (const [term, count] of tf1.entries()) {
+      if (!Number.isFinite(count) || count < 0) continue;
       norm1 += count * count;
       if (tf2.has(term)) {
-        dotProduct += count * (tf2.get(term) || 0);
+        const c2 = tf2.get(term) || 0;
+        if (Number.isFinite(c2) && c2 > 0) {
+          dotProduct += count * c2;
+        }
       }
     }
 
     for (const count of tf2.values()) {
-      norm2 += count * count;
+      if (Number.isFinite(count) && count > 0) {
+        norm2 += count * count;
+      }
     }
 
-    if (norm1 === 0 || norm2 === 0) return 0;
-    return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+    if (norm1 === 0 || norm2 === 0) return 0.0;
+    const raw = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+    return Math.max(0.0, Math.min(1.0, Number.isFinite(raw) ? raw : 0.0));
   }
 
   /**
    * Jaccard overlap over token sets or n-gram sets.
    */
   static jaccardSimilarity(set1: Set<string>, set2: Set<string>): number {
+    if (!(set1 instanceof Set) || !(set2 instanceof Set)) return 0.0;
     if (set1.size === 0 && set2.size === 0) return 1.0;
     if (set1.size === 0 || set2.size === 0) return 0.0;
 
@@ -49,16 +58,19 @@ export class EdgeMetricsEngine {
     }
 
     const union = set1.size + set2.size - intersection;
-    return union > 0 ? intersection / union : 0.0;
+    if (union <= 0) return 0.0;
+    const ratio = intersection / union;
+    return Math.max(0.0, Math.min(1.0, Number.isFinite(ratio) ? ratio : 0.0));
   }
 
   /**
    * Longest Common Subsequence ratio between two token sequences.
    */
   static lcsRatio(tokensA: string[], tokensB: string[]): number {
+    if (!Array.isArray(tokensA) || !Array.isArray(tokensB)) return 0.0;
     const m = tokensA.length;
     const n = tokensB.length;
-    if (m === 0 || n === 0) return 0;
+    if (m === 0 || n === 0) return 0.0;
 
     // Use single-row DP for edge memory efficiency O(N) space
     let prev = new Array(n + 1).fill(0);
@@ -77,7 +89,8 @@ export class EdgeMetricsEngine {
     }
 
     const lcsLen = prev[n];
-    return (2 * lcsLen) / (m + n);
+    const ratio = (2 * lcsLen) / (m + n);
+    return Math.max(0.0, Math.min(1.0, Number.isFinite(ratio) ? ratio : 0.0));
   }
 
   /**
@@ -371,20 +384,25 @@ export class EdgeMetricsEngine {
     extended: ExtendedMetrics;
     claims: ClaimVerification[];
   } {
-    const contextPrecision = this.evaluateContextPrecision(payload.query, payload.retrievedChunks);
+    const safePayload = payload && typeof payload === 'object' ? payload : ({} as any);
+    const query = typeof safePayload.query === 'string' ? safePayload.query : '';
+    const generatedAnswer = typeof safePayload.generatedAnswer === 'string' ? safePayload.generatedAnswer : '';
+    const retrievedChunks = Array.isArray(safePayload.retrievedChunks) ? safePayload.retrievedChunks : [];
+
+    const contextPrecision = this.evaluateContextPrecision(query, retrievedChunks);
     const { groundedness, claims, contradictionEntropy } = this.evaluateGroundednessAndClaims(
-      payload.generatedAnswer,
-      payload.retrievedChunks
+      generatedAnswer,
+      retrievedChunks
     );
-    const answerRelevance = this.evaluateAnswerRelevance(payload.query, payload.generatedAnswer);
+    const answerRelevance = this.evaluateAnswerRelevance(query, generatedAnswer);
 
     const contextRecall = this.evaluateContextRecall(
-      payload.query,
-      payload.retrievedChunks,
-      payload.groundTruth
+      query,
+      retrievedChunks,
+      safePayload.groundTruth
     );
-    const semanticDrift = this.evaluateSemanticDrift(payload.query, payload.generatedAnswer);
-    const brevityIndex = this.evaluateBrevityIndex(payload.generatedAnswer);
+    const semanticDrift = this.evaluateSemanticDrift(query, generatedAnswer);
+    const brevityIndex = this.evaluateBrevityIndex(generatedAnswer);
 
     // Synthesized Hallucination Risk
     const ungroundedClaims = claims.filter(c => c.status === 'UNGROUNDED').length;
@@ -394,7 +412,7 @@ export class EdgeMetricsEngine {
     const rawRisk = (ungroundedClaims * 0.6 + contradictedClaims * 1.0) / totalClaims;
     const hallucinationRisk = Math.max(0.0, Math.min(1.0, rawRisk * (1.0 - 0.5 * groundedness)));
 
-    const rawTokens = FastTokenizer.tokenize(payload.generatedAnswer, false);
+    const rawTokens = FastTokenizer.tokenize(generatedAnswer, false);
     const uniqueSet = new Set(rawTokens);
     const lexicalDiversity = rawTokens.length > 0 ? uniqueSet.size / rawTokens.length : 1.0;
 
