@@ -140,6 +140,49 @@ export function runMetricsTests(): boolean {
     throw new Error('Empty chunks coverage ratio must be 0.0');
   }
 
+  console.log('  Testing Reciprocal Rank, MAP, HitRate@K, and Noise Ratio...');
+  const rankedChunks: RetrievedChunk[] = [
+    { id: 'c1', text: 'Unrelated network buffer configuration.' },
+    { id: 'c2', text: 'AES-256 encryption algorithm is mandated for edge systems.' },
+    { id: 'c3', text: 'System temperature monitoring thresholds.' }
+  ];
+
+  // First relevant chunk is at rank 2 -> RR should be 1/2 = 0.5
+  const rr = EdgeMetricsEngine.evaluateReciprocalRank('AES-256 encryption mandated', rankedChunks, 0.25);
+  if (rr !== 0.5) {
+    throw new Error(`Expected Reciprocal Rank 0.5, got ${rr}`);
+  }
+
+  // HitRate@1 should be 0.0, HitRate@2 should be 1.0
+  const hit1 = EdgeMetricsEngine.evaluateHitRateAtK('AES-256 encryption mandated', rankedChunks, 1, 0.25);
+  if (hit1 !== 0.0) {
+    throw new Error(`Expected HitRate@1 to be 0.0, got ${hit1}`);
+  }
+  const hit2 = EdgeMetricsEngine.evaluateHitRateAtK('AES-256 encryption mandated', rankedChunks, 2, 0.25);
+  if (hit2 !== 1.0) {
+    throw new Error(`Expected HitRate@2 to be 1.0, got ${hit2}`);
+  }
+
+  // Noise ratio: 1 out of 3 is relevant -> noise ratio should be 2/3 ≈ 0.667
+  const noise = EdgeMetricsEngine.evaluateNoiseRatio('AES-256 encryption mandated', rankedChunks, 0.25);
+  if (noise < 0.6 || noise > 0.7) {
+    throw new Error(`Expected noise ratio ~0.667, got ${noise}`);
+  }
+
+  // MAP computation
+  const ap = EdgeMetricsEngine.evaluateAveragePrecision('AES-256 encryption mandated', rankedChunks, 0.25);
+  if (ap !== 0.5) {
+    throw new Error(`Expected Average Precision 0.5, got ${ap}`);
+  }
+
+  // Edge cases
+  if (EdgeMetricsEngine.evaluateReciprocalRank('', []) !== 0.0) {
+    throw new Error('Empty Reciprocal Rank must be 0.0');
+  }
+  if (EdgeMetricsEngine.evaluateNoiseRatio('', []) !== 0.0) {
+    throw new Error('Empty Noise Ratio must be 0.0');
+  }
+
   console.log('  ✓ Mathematical Metrics Engine tests PASSED');
   return true;
 }

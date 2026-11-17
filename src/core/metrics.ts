@@ -443,6 +443,130 @@ export class EdgeMetricsEngine {
   }
 
   /**
+   * Reciprocal Rank (RR): Returns 1 / rank of the first relevant chunk.
+   * If no chunk meets the relevance threshold, returns 0.0.
+   */
+  static evaluateReciprocalRank(
+    query: string,
+    chunks: RetrievedChunk[],
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (!safeQuery || safeChunks.length === 0) return 0.0;
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 0.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+
+    for (let i = 0; i < safeChunks.length; i++) {
+      const text = typeof safeChunks[i]?.text === 'string' ? safeChunks[i].text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        return Math.round((1.0 / (i + 1)) * 1000) / 1000;
+      }
+    }
+    return 0.0;
+  }
+
+  /**
+   * Average Precision (AP): Mean of precision scores computed at each relevant chunk position.
+   */
+  static evaluateAveragePrecision(
+    query: string,
+    chunks: RetrievedChunk[],
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (!safeQuery || safeChunks.length === 0) return 0.0;
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 0.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+    let relevantCount = 0;
+    let sumPrecision = 0;
+
+    for (let i = 0; i < safeChunks.length; i++) {
+      const text = typeof safeChunks[i]?.text === 'string' ? safeChunks[i].text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        relevantCount++;
+        sumPrecision += relevantCount / (i + 1);
+      }
+    }
+
+    if (relevantCount === 0) return 0.0;
+    return Math.round((sumPrecision / relevantCount) * 1000) / 1000;
+  }
+
+  /**
+   * Hit Rate @ K: Returns 1.0 if any chunk within the top-K reaches relevance threshold, else 0.0.
+   */
+  static evaluateHitRateAtK(
+    query: string,
+    chunks: RetrievedChunk[],
+    k: number = 3,
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (!safeQuery || safeChunks.length === 0) return 0.0;
+    const topK = Math.max(1, Math.min(safeChunks.length, Math.floor(k)));
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 0.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+
+    for (let i = 0; i < topK; i++) {
+      const text = typeof safeChunks[i]?.text === 'string' ? safeChunks[i].text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        return 1.0;
+      }
+    }
+    return 0.0;
+  }
+
+  /**
+   * Noise Ratio: Proportion of retrieved chunks failing the relevance threshold.
+   */
+  static evaluateNoiseRatio(
+    query: string,
+    chunks: RetrievedChunk[],
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (safeChunks.length === 0) return 0.0;
+    if (!safeQuery) return 1.0;
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 1.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+    let relevantCount = 0;
+
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        relevantCount++;
+      }
+    }
+
+    const noise = (safeChunks.length - relevantCount) / safeChunks.length;
+    return Math.round(Math.max(0.0, Math.min(1.0, noise)) * 1000) / 1000;
+  }
+
+  /**
    * Full edge evaluation computation for a RAG payload.
    */
   static computeAll(payload: RagPayload): {
