@@ -9,6 +9,7 @@ import { runVmTests } from './test_vm.ts';
 import { runEngineTests } from './test_engine.ts';
 import { runTelemetryTests } from './test_telemetry.ts';
 import { runStorageTests } from './test_storage.ts';
+import { runBm25Tests } from './test_bm25.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -16,7 +17,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 7;
+  let total = 8;
 
   try {
     if (runLexerTests()) passed++;
@@ -26,6 +27,7 @@ async function runAll(): Promise<void> {
     if (runEngineTests()) passed++;
     if (runTelemetryTests()) passed++;
     if (runStorageTests()) passed++;
+    if (runBm25Tests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
