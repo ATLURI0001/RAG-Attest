@@ -392,4 +392,114 @@ export class EdgeMetricsEngine {
       claims
     };
   }
+
+  /**
+   * Okapi BM25 ranking score calculation across a corpus of document strings.
+   */
+  static computeBM25(
+    query: string,
+    corpus: string[],
+    k1: number = 1.2,
+    b: number = 0.75
+  ): number[] {
+    if (!corpus || corpus.length === 0) return [];
+    const N = corpus.length;
+
+    const queryTokens = FastTokenizer.tokenize(query, true);
+    if (queryTokens.length === 0) return new Array(N).fill(0.0);
+
+    const docTokenLists = corpus.map(doc => FastTokenizer.tokenize(doc, true));
+    const docLengths = docTokenLists.map(tokens => tokens.length);
+    const totalLength = docLengths.reduce((acc, len) => acc + len, 0);
+    const avgdl = totalLength > 0 ? totalLength / N : 1.0;
+
+    const dfMap = new Map<string, number>();
+    for (const tokens of docTokenLists) {
+      const unique = new Set(tokens);
+      for (const t of unique) {
+        dfMap.set(t, (dfMap.get(t) || 0) + 1);
+      }
+    }
+
+    const idfMap = new Map<string, number>();
+    for (const t of queryTokens) {
+      if (!idfMap.has(t)) {
+        const nt = dfMap.get(t) || 0;
+        const idf = Math.log(((N - nt + 0.5) / (nt + 0.5)) + 1.0);
+        idfMap.set(t, Math.max(0.0, idf));
+      }
+    }
+
+    const scores: number[] = new Array(N).fill(0.0);
+
+    for (let d = 0; d < N; d++) {
+      const tokens = docTokenLists[d];
+      const tfMap = new Map<string, number>();
+      for (const t of tokens) {
+        tfMap.set(t, (tfMap.get(t) || 0) + 1);
+      }
+
+      let docScore = 0.0;
+      const lenNorm = 1.0 - b + b * (docLengths[d] / (avgdl > 0 ? avgdl : 1.0));
+
+      for (const t of queryTokens) {
+        const tf = tfMap.get(t) || 0;
+        if (tf > 0) {
+          const idf = idfMap.get(t) || 0.0;
+          const numerator = tf * (k1 + 1.0);
+          const denominator = tf + k1 * lenNorm;
+          docScore += idf * (numerator / (denominator > 0 ? denominator : 1.0));
+        }
+      }
+
+      scores[d] = Math.round(docScore * 10000) / 10000;
+    }
+
+    return scores;
+  }
+
+  /**
+   * Mean Reciprocal Rank (MRR):
+   * Evaluates the rank of the first relevant document in retrieved items.
+   */
+  static computeMRR(retrievedIds: string[], groundTruthIds: string[]): number {
+    if (!retrievedIds || retrievedIds.length === 0) return 0.0;
+    if (!groundTruthIds || groundTruthIds.length === 0) return 0.0;
+
+    const gtSet = new Set(groundTruthIds);
+    for (let i = 0; i < retrievedIds.length; i++) {
+      if (gtSet.has(retrievedIds[i])) {
+        return Math.round((1.0 / (i + 1)) * 10000) / 10000;
+      }
+    }
+    return 0.0;
+  }
+
+  /**
+   * Normalized Discounted Cumulative Gain at K (NDCG@K).
+   */
+  static computeNDCGAtK(
+    relevanceScores: number[],
+    k?: number
+  ): number {
+    if (!relevanceScores || relevanceScores.length === 0) return 0.0;
+    const limit = Math.min(relevanceScores.length, k ?? relevanceScores.length);
+    if (limit <= 0) return 0.0;
+
+    let dcg = 0.0;
+    for (let i = 0; i < limit; i++) {
+      const rel = relevanceScores[i];
+      dcg += (Math.pow(2, rel) - 1.0) / Math.log2(i + 2);
+    }
+
+    const ideal = [...relevanceScores].sort((a, b) => b - a);
+    let idcg = 0.0;
+    for (let i = 0; i < limit; i++) {
+      const rel = ideal[i];
+      idcg += (Math.pow(2, rel) - 1.0) / Math.log2(i + 2);
+    }
+
+    if (idcg === 0.0) return 0.0;
+    return Math.round((dcg / idcg) * 10000) / 10000;
+  }
 }
