@@ -221,15 +221,28 @@ export class Lexer {
     while (this.pos < this.src.length && this.src[this.pos] !== quote) {
       if (this.src[this.pos] === '\\') {
         this.advance();
+        if (this.pos >= this.src.length) {
+          throw new Error(`[RAG-L Lexer Error] Unterminated string literal escape at line ${startLine}, col ${startCol}`);
+        }
         const esc = this.src[this.pos];
         if (esc === 'n') str += '\n';
         else if (esc === 't') str += '\t';
         else if (esc === 'r') str += '\r';
+        else if (esc === '0') str += '\0';
+        else if (esc === '\\') str += '\\';
+        else if (esc === quote) str += quote;
         else str += esc;
         this.advance();
       } else {
-        str += this.src[this.pos];
-        this.advance();
+        if (this.src[this.pos] === '\n') {
+          this.line++;
+          this.col = 1;
+          this.pos++;
+          str += '\n';
+        } else {
+          str += this.src[this.pos];
+          this.advance();
+        }
       }
     }
 

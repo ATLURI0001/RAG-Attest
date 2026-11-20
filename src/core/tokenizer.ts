@@ -27,7 +27,7 @@ export class FastTokenizer {
    * Split string into clean lowercased tokens.
    */
   static tokenize(text: string, filterStopWords: boolean = false): string[] {
-    if (!text) return [];
+    if (!text || typeof text !== 'string') return [];
     const rawTokens = text
       .toLowerCase()
       .replace(/[^\w\s-]/g, ' ')
@@ -42,7 +42,9 @@ export class FastTokenizer {
    * Generate n-grams (e.g. bigrams or trigrams) from token stream.
    */
   static ngrams(tokens: string[], n: number = 2): string[] {
-    if (tokens.length < n) return [];
+    if (!Array.isArray(tokens) || !Number.isInteger(n) || n <= 0 || tokens.length < n) {
+      return [];
+    }
     const grams: string[] = [];
     for (let i = 0; i <= tokens.length - n; i++) {
       grams.push(tokens.slice(i, i + n).join(' '));
@@ -82,6 +84,7 @@ export class FastTokenizer {
    * On the edge, decomposes compound sentences with clauses into atomic testable assertions.
    */
   static extractClaims(text: string): string[] {
+    if (!text || typeof text !== 'string') return [];
     const sentences = this.splitSentences(text);
     const claims: string[] = [];
 
@@ -96,13 +99,15 @@ export class FastTokenizer {
       }
     }
 
-    return claims.length > 0 ? claims : [text.trim()];
+    const trimmed = text.trim();
+    return claims.length > 0 ? claims : (trimmed ? [trimmed] : []);
   }
 
   /**
    * Detect polarity / negative inversion keywords in a claim or sentence.
    */
   static hasNegation(text: string): boolean {
+    if (!text || typeof text !== 'string') return false;
     const negations = /\b(not|never|no|none|neither|nor|without|fails|cannot|can't|won't|doesn't|didn't|isn't|aren't|untrue|false)\b/i;
     return negations.test(text);
   }

@@ -36,6 +36,24 @@ export function runLexerTests(): boolean {
     throw new Error('RAG-L Lexer missed core keywords');
   }
 
+  // Escape sequence and multiline string testing
+  const escapeLexer = new Lexer('"line1\\nline2\\"quote\\\\slash"');
+  const escapeTokens = escapeLexer.tokenize();
+  if (escapeTokens[0].value !== 'line1\nline2"quote\\slash') {
+    throw new Error(`RAG-L Lexer failed escape sequence processing: got ${JSON.stringify(escapeTokens[0].value)}`);
+  }
+
+  // Unterminated escape at EOF
+  let threw = false;
+  try {
+    new Lexer('"trailing-slash\\').tokenize();
+  } catch (err: any) {
+    threw = err.message.includes('Unterminated string literal');
+  }
+  if (!threw) {
+    throw new Error('RAG-L Lexer failed to throw on unterminated string escape');
+  }
+
   console.log('  ✓ Lexer & Tokenizer tests PASSED');
   return true;
 }

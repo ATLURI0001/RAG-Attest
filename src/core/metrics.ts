@@ -17,29 +17,38 @@ export class EdgeMetricsEngine {
    * Cosine similarity between two term-frequency maps.
    */
   static cosineSimilarity(tf1: Map<string, number>, tf2: Map<string, number>): number {
+    if (!(tf1 instanceof Map) || !(tf2 instanceof Map)) return 0.0;
     let dotProduct = 0;
     let norm1 = 0;
     let norm2 = 0;
 
     for (const [term, count] of tf1.entries()) {
+      if (!Number.isFinite(count) || count < 0) continue;
       norm1 += count * count;
       if (tf2.has(term)) {
-        dotProduct += count * (tf2.get(term) || 0);
+        const c2 = tf2.get(term) || 0;
+        if (Number.isFinite(c2) && c2 > 0) {
+          dotProduct += count * c2;
+        }
       }
     }
 
     for (const count of tf2.values()) {
-      norm2 += count * count;
+      if (Number.isFinite(count) && count > 0) {
+        norm2 += count * count;
+      }
     }
 
-    if (norm1 === 0 || norm2 === 0) return 0;
-    return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+    if (norm1 === 0 || norm2 === 0) return 0.0;
+    const raw = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+    return Math.max(0.0, Math.min(1.0, Number.isFinite(raw) ? raw : 0.0));
   }
 
   /**
    * Jaccard overlap over token sets or n-gram sets.
    */
   static jaccardSimilarity(set1: Set<string>, set2: Set<string>): number {
+    if (!(set1 instanceof Set) || !(set2 instanceof Set)) return 0.0;
     if (set1.size === 0 && set2.size === 0) return 1.0;
     if (set1.size === 0 || set2.size === 0) return 0.0;
 
@@ -49,16 +58,19 @@ export class EdgeMetricsEngine {
     }
 
     const union = set1.size + set2.size - intersection;
-    return union > 0 ? intersection / union : 0.0;
+    if (union <= 0) return 0.0;
+    const ratio = intersection / union;
+    return Math.max(0.0, Math.min(1.0, Number.isFinite(ratio) ? ratio : 0.0));
   }
 
   /**
    * Longest Common Subsequence ratio between two token sequences.
    */
   static lcsRatio(tokensA: string[], tokensB: string[]): number {
+    if (!Array.isArray(tokensA) || !Array.isArray(tokensB)) return 0.0;
     const m = tokensA.length;
     const n = tokensB.length;
-    if (m === 0 || n === 0) return 0;
+    if (m === 0 || n === 0) return 0.0;
 
     // Use single-row DP for edge memory efficiency O(N) space
     let prev = new Array(n + 1).fill(0);
@@ -77,7 +89,8 @@ export class EdgeMetricsEngine {
     }
 
     const lcsLen = prev[n];
-    return (2 * lcsLen) / (m + n);
+    const ratio = (2 * lcsLen) / (m + n);
+    return Math.max(0.0, Math.min(1.0, Number.isFinite(ratio) ? ratio : 0.0));
   }
 
   /**
@@ -85,15 +98,17 @@ export class EdgeMetricsEngine {
    * relevant information at the top ranks using Discounted Cumulative Gain (DCG).
    */
   static evaluateContextPrecision(query: string, chunks: RetrievedChunk[]): number {
-    if (!chunks || chunks.length === 0) return 0.0;
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (safeChunks.length === 0) return 0.0;
 
     const queryTokens = new Set(FastTokenizer.tokenize(query, true));
     if (queryTokens.size === 0) return 1.0;
 
     const relevances: number[] = [];
 
-    for (const chunk of chunks) {
-      const chunkTokens = new Set(FastTokenizer.tokenize(chunk.text, true));
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      const chunkTokens = new Set(FastTokenizer.tokenize(text, true));
       let matches = 0;
       for (const qt of queryTokens) {
         if (chunkTokens.has(qt)) matches++;
@@ -149,20 +164,34 @@ export class EdgeMetricsEngine {
     let entailedCount = 0;
     let contradictedCount = 0;
 
-    const chunkData = chunks.map(c => {
-      const tokens = FastTokenizer.tokenize(c.text, true);
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    const chunkData = safeChunks.map(c => {
+      const text = typeof c?.text === 'string' ? c.text : '';
+      const tokens = FastTokenizer.tokenize(text, true);
+      const rawTokens = FastTokenizer.tokenize(text, false);
+      const rawWords = text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
       return {
-        id: c.id,
-        text: c.text,
+        id: c?.id ?? 'unknown',
+        text,
         tokenSet: new Set(tokens),
+        rawTokenSet: new Set([...rawTokens, ...rawWords]),
         bigrams: new Set(FastTokenizer.ngrams(tokens, 2)),
-        hasNegation: FastTokenizer.hasNegation(c.text)
+        rawBigrams: new Set(FastTokenizer.ngrams(rawTokens, 2)),
+        hasNegation: FastTokenizer.hasNegation(text)
       };
     });
 
     for (let i = 0; i < rawClaims.length; i++) {
       const claimText = rawClaims[i];
-      const claimTokens = FastTokenizer.tokenize(claimText, true);
+      const filteredTokens = FastTokenizer.tokenize(claimText, true);
+      // Guard short/stop-word-only claims so valid short assertions don't collapse to 0 overlap
+      const usingRawFallback = filteredTokens.length === 0;
+      const claimTokens = usingRawFallback
+        ? Array.from(new Set([
+            ...FastTokenizer.tokenize(claimText, false),
+            ...claimText.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean),
+          ]))
+        : filteredTokens;
       const claimTokenSet = new Set(claimTokens);
       const claimBigrams = new Set(FastTokenizer.ngrams(claimTokens, 2));
       const claimHasNegation = FastTokenizer.hasNegation(claimText);
@@ -173,14 +202,19 @@ export class EdgeMetricsEngine {
       let contradictionFlag = false;
 
       for (const cd of chunkData) {
+        const targetTokenSet = usingRawFallback ? cd.rawTokenSet : cd.tokenSet;
+        const targetBigrams = usingRawFallback ? cd.rawBigrams : cd.bigrams;
+
         // Keyword overlap
         const matched: string[] = [];
         for (const ct of claimTokenSet) {
-          if (cd.tokenSet.has(ct)) matched.push(ct);
+          if (targetTokenSet.has(ct)) matched.push(ct);
         }
 
         const unigramScore = claimTokenSet.size > 0 ? matched.length / claimTokenSet.size : 0;
-        const bigramScore = this.jaccardSimilarity(claimBigrams, cd.bigrams);
+        const bigramScore = claimBigrams.size > 0
+          ? this.jaccardSimilarity(claimBigrams, targetBigrams)
+          : unigramScore;
 
         // Harmonized match score
         const score = 0.65 * unigramScore + 0.35 * bigramScore;
@@ -287,12 +321,14 @@ export class EdgeMetricsEngine {
     const referenceText = groundTruth || query;
     const refTokens = new Set(FastTokenizer.tokenize(referenceText, true));
 
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
     if (refTokens.size === 0) return 1.0;
-    if (!chunks || chunks.length === 0) return 0.0;
+    if (safeChunks.length === 0) return 0.0;
 
     const aggregateChunkTokens = new Set<string>();
-    for (const chunk of chunks) {
-      const tokens = FastTokenizer.tokenize(chunk.text, true);
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      const tokens = FastTokenizer.tokenize(text, true);
       for (const t of tokens) aggregateChunkTokens.add(t);
     }
 
@@ -341,6 +377,196 @@ export class EdgeMetricsEngine {
   }
 
   /**
+   * Token-level F1 Overlap: Evaluates harmonic precision and recall
+   * between candidate answer and ground truth reference.
+   */
+  static evaluateF1Overlap(reference: string, candidate: string): { precision: number; recall: number; f1: number } {
+    const refTokens = FastTokenizer.tokenize(typeof reference === 'string' ? reference : '', true);
+    const candTokens = FastTokenizer.tokenize(typeof candidate === 'string' ? candidate : '', true);
+
+    if (refTokens.length === 0 && candTokens.length === 0) {
+      return { precision: 1.0, recall: 1.0, f1: 1.0 };
+    }
+    if (refTokens.length === 0 || candTokens.length === 0) {
+      return { precision: 0.0, recall: 0.0, f1: 0.0 };
+    }
+
+    const refCounts = new Map<string, number>();
+    for (const t of refTokens) refCounts.set(t, (refCounts.get(t) || 0) + 1);
+
+    let matchCount = 0;
+    const candCounts = new Map<string, number>();
+    for (const t of candTokens) candCounts.set(t, (candCounts.get(t) || 0) + 1);
+
+    for (const [token, count] of candCounts.entries()) {
+      if (refCounts.has(token)) {
+        matchCount += Math.min(count, refCounts.get(token)!);
+      }
+    }
+
+    const precision = matchCount / candTokens.length;
+    const recall = matchCount / refTokens.length;
+    const f1 = (precision + recall) > 0 ? (2 * precision * recall) / (precision + recall) : 0.0;
+
+    return {
+      precision: Math.round(Math.max(0.0, Math.min(1.0, precision)) * 1000) / 1000,
+      recall: Math.round(Math.max(0.0, Math.min(1.0, recall)) * 1000) / 1000,
+      f1: Math.round(Math.max(0.0, Math.min(1.0, f1)) * 1000) / 1000
+    };
+  }
+
+  /**
+   * Coverage Ratio: Measures proportion of unique query content tokens
+   * present within the retrieved chunk set.
+   */
+  static evaluateCoverageRatio(query: string, chunks: RetrievedChunk[]): number {
+    const qTokens = new Set(FastTokenizer.tokenize(typeof query === 'string' ? query : '', true));
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+
+    if (qTokens.size === 0) return 1.0;
+    if (safeChunks.length === 0) return 0.0;
+
+    const chunkTokens = new Set<string>();
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      for (const t of FastTokenizer.tokenize(text, true)) {
+        chunkTokens.add(t);
+      }
+    }
+
+    let covered = 0;
+    for (const qt of qTokens) {
+      if (chunkTokens.has(qt)) covered++;
+    }
+
+    return Math.round(Math.max(0.0, Math.min(1.0, covered / qTokens.size)) * 1000) / 1000;
+  }
+
+  /**
+   * Reciprocal Rank (RR): Returns 1 / rank of the first relevant chunk.
+   * If no chunk meets the relevance threshold, returns 0.0.
+   */
+  static evaluateReciprocalRank(
+    query: string,
+    chunks: RetrievedChunk[],
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (!safeQuery || safeChunks.length === 0) return 0.0;
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 0.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+
+    for (let i = 0; i < safeChunks.length; i++) {
+      const text = typeof safeChunks[i]?.text === 'string' ? safeChunks[i].text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        return Math.round((1.0 / (i + 1)) * 1000) / 1000;
+      }
+    }
+    return 0.0;
+  }
+
+  /**
+   * Average Precision (AP): Mean of precision scores computed at each relevant chunk position.
+   */
+  static evaluateAveragePrecision(
+    query: string,
+    chunks: RetrievedChunk[],
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (!safeQuery || safeChunks.length === 0) return 0.0;
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 0.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+    let relevantCount = 0;
+    let sumPrecision = 0;
+
+    for (let i = 0; i < safeChunks.length; i++) {
+      const text = typeof safeChunks[i]?.text === 'string' ? safeChunks[i].text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        relevantCount++;
+        sumPrecision += relevantCount / (i + 1);
+      }
+    }
+
+    if (relevantCount === 0) return 0.0;
+    return Math.round((sumPrecision / relevantCount) * 1000) / 1000;
+  }
+
+  /**
+   * Hit Rate @ K: Returns 1.0 if any chunk within the top-K reaches relevance threshold, else 0.0.
+   */
+  static evaluateHitRateAtK(
+    query: string,
+    chunks: RetrievedChunk[],
+    k: number = 3,
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (!safeQuery || safeChunks.length === 0) return 0.0;
+    const topK = Math.max(1, Math.min(safeChunks.length, Math.floor(k)));
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 0.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+
+    for (let i = 0; i < topK; i++) {
+      const text = typeof safeChunks[i]?.text === 'string' ? safeChunks[i].text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        return 1.0;
+      }
+    }
+    return 0.0;
+  }
+
+  /**
+   * Noise Ratio: Proportion of retrieved chunks failing the relevance threshold.
+   */
+  static evaluateNoiseRatio(
+    query: string,
+    chunks: RetrievedChunk[],
+    relevanceThreshold: number = 0.25
+  ): number {
+    const safeQuery = typeof query === 'string' ? query : '';
+    const safeChunks = Array.isArray(chunks) ? chunks : [];
+    if (safeChunks.length === 0) return 0.0;
+    if (!safeQuery) return 1.0;
+
+    const qTokens = FastTokenizer.tokenize(safeQuery, true);
+    if (qTokens.length === 0) return 1.0;
+    const qTf = FastTokenizer.termFrequency(qTokens);
+    let relevantCount = 0;
+
+    for (const chunk of safeChunks) {
+      const text = typeof chunk?.text === 'string' ? chunk.text : '';
+      const cTokens = FastTokenizer.tokenize(text, true);
+      const cTf = FastTokenizer.termFrequency(cTokens);
+      const sim = this.cosineSimilarity(qTf, cTf);
+      if (sim >= relevanceThreshold) {
+        relevantCount++;
+      }
+    }
+
+    const noise = (safeChunks.length - relevantCount) / safeChunks.length;
+    return Math.round(Math.max(0.0, Math.min(1.0, noise)) * 1000) / 1000;
+  }
+
+  /**
    * Full edge evaluation computation for a RAG payload.
    */
   static computeAll(payload: RagPayload): {
@@ -348,20 +574,25 @@ export class EdgeMetricsEngine {
     extended: ExtendedMetrics;
     claims: ClaimVerification[];
   } {
-    const contextPrecision = this.evaluateContextPrecision(payload.query, payload.retrievedChunks);
+    const safePayload = payload && typeof payload === 'object' ? payload : ({} as any);
+    const query = typeof safePayload.query === 'string' ? safePayload.query : '';
+    const generatedAnswer = typeof safePayload.generatedAnswer === 'string' ? safePayload.generatedAnswer : '';
+    const retrievedChunks = Array.isArray(safePayload.retrievedChunks) ? safePayload.retrievedChunks : [];
+
+    const contextPrecision = this.evaluateContextPrecision(query, retrievedChunks);
     const { groundedness, claims, contradictionEntropy } = this.evaluateGroundednessAndClaims(
-      payload.generatedAnswer,
-      payload.retrievedChunks
+      generatedAnswer,
+      retrievedChunks
     );
-    const answerRelevance = this.evaluateAnswerRelevance(payload.query, payload.generatedAnswer);
+    const answerRelevance = this.evaluateAnswerRelevance(query, generatedAnswer);
 
     const contextRecall = this.evaluateContextRecall(
-      payload.query,
-      payload.retrievedChunks,
-      payload.groundTruth
+      query,
+      retrievedChunks,
+      safePayload.groundTruth
     );
-    const semanticDrift = this.evaluateSemanticDrift(payload.query, payload.generatedAnswer);
-    const brevityIndex = this.evaluateBrevityIndex(payload.generatedAnswer);
+    const semanticDrift = this.evaluateSemanticDrift(query, generatedAnswer);
+    const brevityIndex = this.evaluateBrevityIndex(generatedAnswer);
 
     // Synthesized Hallucination Risk
     const ungroundedClaims = claims.filter(c => c.status === 'UNGROUNDED').length;
@@ -371,7 +602,7 @@ export class EdgeMetricsEngine {
     const rawRisk = (ungroundedClaims * 0.6 + contradictedClaims * 1.0) / totalClaims;
     const hallucinationRisk = Math.max(0.0, Math.min(1.0, rawRisk * (1.0 - 0.5 * groundedness)));
 
-    const rawTokens = FastTokenizer.tokenize(payload.generatedAnswer, false);
+    const rawTokens = FastTokenizer.tokenize(generatedAnswer, false);
     const uniqueSet = new Set(rawTokens);
     const lexicalDiversity = rawTokens.length > 0 ? uniqueSet.size / rawTokens.length : 1.0;
 
