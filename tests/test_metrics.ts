@@ -52,6 +52,43 @@ export function runMetricsTests(): boolean {
     throw new Error('Full payload metrics calculation failed sanity bounds');
   }
 
+  console.log('  Testing Okapi BM25 ranking across corpus...');
+  const corpus = [
+    'AES-256-GCM encryption is strictly required.',
+    'Weather forecast predicts sunny conditions tomorrow.',
+    'Encryption keys must be rotated every 30 days.'
+  ];
+  const bm25Scores = EdgeMetricsEngine.computeBM25('encryption keys', corpus);
+  if (bm25Scores.length !== 3) {
+    throw new Error(`Expected 3 BM25 scores, got ${bm25Scores.length}`);
+  }
+  // Document 2 (index 2) contains both "encryption" and "keys", so it should score highest
+  if (bm25Scores[2] <= bm25Scores[0] || bm25Scores[2] <= bm25Scores[1]) {
+    throw new Error(`Expected document 2 to rank highest in BM25, scores: ${JSON.stringify(bm25Scores)}`);
+  }
+  if (bm25Scores[1] !== 0.0) {
+    throw new Error(`Expected document 1 with zero query terms to score 0.0, got ${bm25Scores[1]}`);
+  }
+
+  console.log('  Testing Mean Reciprocal Rank (MRR)...');
+  const mrr1 = EdgeMetricsEngine.computeMRR(['doc1', 'doc2', 'doc3'], ['doc1']);
+  if (mrr1 !== 1.0) throw new Error(`Expected MRR 1.0, got ${mrr1}`);
+
+  const mrr2 = EdgeMetricsEngine.computeMRR(['doc1', 'doc2', 'doc3'], ['doc2']);
+  if (mrr2 !== 0.5) throw new Error(`Expected MRR 0.5, got ${mrr2}`);
+
+  const mrr0 = EdgeMetricsEngine.computeMRR(['doc1', 'doc2'], ['doc99']);
+  if (mrr0 !== 0.0) throw new Error(`Expected MRR 0.0, got ${mrr0}`);
+
+  console.log('  Testing NDCG@K ranking...');
+  const ndcgIdeal = EdgeMetricsEngine.computeNDCGAtK([3, 2, 1, 0]);
+  if (ndcgIdeal !== 1.0) throw new Error(`Expected ideal NDCG 1.0, got ${ndcgIdeal}`);
+
+  const ndcgSuboptimal = EdgeMetricsEngine.computeNDCGAtK([1, 3, 2, 0]);
+  if (ndcgSuboptimal >= 1.0 || ndcgSuboptimal <= 0.5) {
+    throw new Error(`Expected suboptimal NDCG between 0.5 and 1.0, got ${ndcgSuboptimal}`);
+  }
+
   console.log('  Testing Short/Numeric Claims & Ngram Edge Guards...');
   const numericChunks: RetrievedChunk[] = [
     { id: 'c-num', text: 'The maximum retry threshold is 42 attempts.' }
