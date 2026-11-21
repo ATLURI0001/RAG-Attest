@@ -16,6 +16,7 @@ import { runContractTests } from './test_contract.ts';
 import { runRateGovernorTests } from './test_rate_governor.ts';
 import { runPromptGuardTests } from './test_prompt_guard.ts';
 import { runChunkerTests } from './test_chunker.ts';
+import { runGroundingVerifierTests } from './test_grounding_verifier.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -23,7 +24,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 14;
+  let total = 15;
 
   try {
     if (runLexerTests()) passed++;
@@ -41,6 +42,8 @@ async function runAll(): Promise<void> {
     runPromptGuardTests();
     passed++;
     if (runChunkerTests()) passed++;
+    runGroundingVerifierTests();
+    passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
