@@ -188,6 +188,24 @@ export class BM25InvertedIndex {
       totalPostings,
     };
   }
+
+  /**
+   * Return a shallow clone array of all indexed document chunks.
+   */
+  getAllDocuments(): RetrievedChunk[] {
+    return Array.from(this.docs.values());
+  }
+
+  /**
+   * Clears all documents, postings, and vocabulary from memory.
+   */
+  clear(): void {
+    this.docs.clear();
+    this.docLengths.clear();
+    this.docTerms.clear();
+    this.postings.clear();
+    this.totalDocLength = 0;
+  }
 }
 
 /**
