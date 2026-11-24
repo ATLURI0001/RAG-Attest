@@ -23,6 +23,7 @@ import { runAttestationGuardTests } from './test_attestation_guard.ts';
 import { runIndexCompactorTests } from './test_index_compactor.ts';
 import { runHybridFusionProfilerTests } from './test_hybrid_fusion_profiler.ts';
 import { runEmbeddingContractTests } from './test_embedding_contract.ts';
+import { runCacheTelemetryTests } from './test_cache_telemetry.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -30,7 +31,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 21;
+  let total = 22;
 
   try {
     if (runLexerTests()) passed++;
@@ -56,6 +57,7 @@ async function runAll(): Promise<void> {
     if (runIndexCompactorTests()) passed++;
     if (runHybridFusionProfilerTests()) passed++;
     if (runEmbeddingContractTests()) passed++;
+    if (runCacheTelemetryTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
