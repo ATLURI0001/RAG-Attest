@@ -36,6 +36,7 @@ import { runChunkInjectionSentinelTests } from './test_chunk_injection_sentinel.
 import { runCosineSimProfilerTests } from './test_cosine_sim_profiler.ts';
 import { runCitationAnchorContractTests } from './test_citation_anchor_contract.ts';
 import { runRerankLatencyRotaryTests } from './test_rerank_latency_rotary.ts';
+import { runChunkStoreCircuitBreakerTests } from './test_chunk_store_circuit_breaker.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -43,7 +44,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 34;
+  let total = 35;
 
   try {
     if (runLexerTests()) passed++;
@@ -82,6 +83,7 @@ async function runAll(): Promise<void> {
     if (runCosineSimProfilerTests()) passed++;
     if (runCitationAnchorContractTests()) passed++;
     if (runRerankLatencyRotaryTests()) passed++;
+    if (runChunkStoreCircuitBreakerTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
