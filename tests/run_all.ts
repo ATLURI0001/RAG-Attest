@@ -25,6 +25,7 @@ import { runHybridFusionProfilerTests } from './test_hybrid_fusion_profiler.ts';
 import { runEmbeddingContractTests } from './test_embedding_contract.ts';
 import { runCacheTelemetryTests } from './test_cache_telemetry.ts';
 import { runVectorStoreCircuitBreakerTests } from './test_vector_store_circuit_breaker.ts';
+import { runRerankerCircuitBreakerTests } from './test_reranker_circuit_breaker.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -32,7 +33,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 23;
+  let total = 24;
 
   try {
     if (runLexerTests()) passed++;
@@ -60,6 +61,7 @@ async function runAll(): Promise<void> {
     if (runEmbeddingContractTests()) passed++;
     if (runCacheTelemetryTests()) passed++;
     if (await runVectorStoreCircuitBreakerTests()) passed++;
+    if (await runRerankerCircuitBreakerTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
