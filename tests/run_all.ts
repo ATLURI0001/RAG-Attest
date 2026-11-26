@@ -28,6 +28,7 @@ import { runVectorStoreCircuitBreakerTests } from './test_vector_store_circuit_b
 import { runRerankerCircuitBreakerTests } from './test_reranker_circuit_breaker.ts';
 import { runIndexCorruptionSentinelTests } from './test_index_corruption_sentinel.ts';
 import { runBM25BenchmarkProfilerTests } from './test_bm25_benchmark_profiler.ts';
+import { runEmbeddingBenchmarkProfilerTests } from './test_embedding_benchmark_profiler.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -35,7 +36,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 26;
+  let total = 27;
 
   try {
     if (runLexerTests()) passed++;
@@ -66,6 +67,7 @@ async function runAll(): Promise<void> {
     if (await runRerankerCircuitBreakerTests()) passed++;
     if (runIndexCorruptionSentinelTests()) passed++;
     if (runBM25BenchmarkProfilerTests()) passed++;
+    if (runEmbeddingBenchmarkProfilerTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
