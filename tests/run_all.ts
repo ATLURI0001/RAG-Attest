@@ -32,6 +32,7 @@ import { runEmbeddingBenchmarkProfilerTests } from './test_embedding_benchmark_p
 import { runRerankerScoreContractTests } from './test_reranker_score_contract.ts';
 import { runChunkDedupRotaryTests } from './test_chunk_dedup_rotary.ts';
 import { runEmbeddingApiCircuitBreakerTests } from './test_embedding_api_circuit_breaker.ts';
+import { runChunkInjectionSentinelTests } from './test_chunk_injection_sentinel.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -39,7 +40,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 30;
+  let total = 31;
 
   try {
     if (runLexerTests()) passed++;
@@ -74,6 +75,7 @@ async function runAll(): Promise<void> {
     if (runRerankerScoreContractTests()) passed++;
     if (runChunkDedupRotaryTests()) passed++;
     if (runEmbeddingApiCircuitBreakerTests()) passed++;
+    if (runChunkInjectionSentinelTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
