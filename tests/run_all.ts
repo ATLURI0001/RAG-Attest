@@ -46,6 +46,7 @@ import { runUnicodeNormSentinelTests } from './test_unicode_norm_sentinel.ts';
 import { runChunkHashProfilerTests } from './test_chunk_hash_profiler.ts';
 import { runQueryCacheCircuitBreakerTests } from './test_query_cache_circuit_breaker.ts';
 import { runIndexRebuildSentinelTests } from './test_index_rebuild_sentinel.ts';
+import { runEmbeddingDriftSentinelTests } from './test_embedding_drift_sentinel.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -53,7 +54,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 44;
+  let total = 45;
 
   try {
     if (runLexerTests()) passed++;
@@ -102,6 +103,7 @@ async function runAll(): Promise<void> {
 if (runChunkHashProfilerTests()) passed++;
 if (runQueryCacheCircuitBreakerTests()) passed++;
 if (runIndexRebuildSentinelTests()) passed++;
+if (runEmbeddingDriftSentinelTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
