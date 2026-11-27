@@ -50,6 +50,7 @@ import { runEmbeddingDriftSentinelTests } from './test_embedding_drift_sentinel.
 import { runRetrieverTimeoutCircuitBreakerTests } from './test_retriever_timeout_circuit_breaker.ts';
 import { runChunkLengthSentinelTests } from './test_chunk_length_sentinel.ts';
 import { runVectorSearchProfilerTests } from './test_vector_search_profiler.ts';
+import { runEmbeddingDimContractTests } from './test_embedding_dim_contract.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -57,7 +58,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 48;
+  let total = 49;
 
   try {
     if (runLexerTests()) passed++;
@@ -110,6 +111,7 @@ if (runEmbeddingDriftSentinelTests()) passed++;
 if (runRetrieverTimeoutCircuitBreakerTests()) passed++;
 if (runChunkLengthSentinelTests()) passed++;
 if (runVectorSearchProfilerTests()) passed++;
+if (runEmbeddingDimContractTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
