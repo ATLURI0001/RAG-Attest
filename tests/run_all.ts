@@ -39,6 +39,7 @@ import { runRerankLatencyRotaryTests } from './test_rerank_latency_rotary.ts';
 import { runChunkStoreCircuitBreakerTests } from './test_chunk_store_circuit_breaker.ts';
 import { runContextTruncationSentinelTests } from './test_context_truncation_sentinel.ts';
 import { runBm25TokenizeProfilerTests } from './test_bm25_tokenize_profiler.ts';
+import { runChunkMetadataContractTests } from './test_chunk_metadata_contract.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -46,7 +47,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 37;
+  let total = 38;
 
   try {
     if (runLexerTests()) passed++;
@@ -88,6 +89,7 @@ async function runAll(): Promise<void> {
     if (runChunkStoreCircuitBreakerTests()) passed++;
     if (runContextTruncationSentinelTests()) passed++;
     if (runBm25TokenizeProfilerTests()) passed++;
+    if (runChunkMetadataContractTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
