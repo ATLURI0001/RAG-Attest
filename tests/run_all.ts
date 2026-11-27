@@ -44,6 +44,7 @@ import { runEmbeddingCacheRotaryTests } from './test_embedding_cache_rotary.ts';
 import { runRerankerPoolCircuitBreakerTests } from './test_reranker_pool_circuit_breaker.ts';
 import { runUnicodeNormSentinelTests } from './test_unicode_norm_sentinel.ts';
 import { runChunkHashProfilerTests } from './test_chunk_hash_profiler.ts';
+import { runQueryCacheCircuitBreakerTests } from './test_query_cache_circuit_breaker.ts';
 
 async function runAll(): Promise<void> {
   console.log('\n======================================================');
@@ -51,7 +52,7 @@ async function runAll(): Promise<void> {
   console.log('======================================================\n');
 
   let passed = 0;
-  let total = 42;
+  let total = 43;
 
   try {
     if (runLexerTests()) passed++;
@@ -98,6 +99,7 @@ async function runAll(): Promise<void> {
     if (runRerankerPoolCircuitBreakerTests()) passed++;
     if (runUnicodeNormSentinelTests()) passed++;
 if (runChunkHashProfilerTests()) passed++;
+if (runQueryCacheCircuitBreakerTests()) passed++;
 
     console.log(`\n======================================================`);
     console.log(`  ALL ${passed}/${total} TEST SUITES PASSED DETERMINISTICALLY!`);
